@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <title>Check-list de Viagem</title>
+
+  <!-- PWA / iPhone -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Check-list Viagem">
+  <meta name="theme-color" content="#1a3c5e">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon.jpg">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #f0f4f8; min-height: 100vh;
+      padding: 32px 16px;
+      padding-left:  max(16px, env(safe-area-inset-left));
+      padding-right: max(16px, env(safe-area-inset-right));
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+      -webkit-tap-highlight-color: transparent;
+    }
+    .container { max-width: 960px; margin: 0 auto; }
+
+    /* ── Modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(10,25,47,0.75);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 999;
+    }
+    .modal-box {
+      background: #fff; border-radius: 18px;
+      padding: 40px 44px; max-width: 440px; width: 92%;
+      box-shadow: 0 10px 48px rgba(0,0,0,0.26); text-align: center;
+    }
+    .modal-box h2 { font-size: 1.55rem; color: #1a3c5e; margin-bottom: 8px; }
+    .modal-box p  { color: #5a7a9a; font-size: 0.9rem; margin-bottom: 26px; line-height: 1.5; }
+    .modal-days-input {
+      width: 110px; font-size: 2.2rem; font-weight: 700; color: #1a3c5e;
+      border: 2px solid #d0daea; border-radius: 14px; text-align: center;
+      padding: 10px; outline: none; margin-bottom: 14px; font-family: inherit;
+      display: block; margin-left: auto; margin-right: auto;
+    }
+    .modal-hint {
+      font-size: 0.78rem; color: #1a7a4a; background: #eafaf1;
+      border-radius: 8px; padding: 9px 16px; margin-bottom: 20px;
+      display: none; line-height: 1.4;
+    }
+    .modal-hint.visible { display: block; }
+    .btn-confirm {
+      background: #1a3c5e; color: #fff; border: none;
+      border-radius: 12px; padding: 13px 40px;
+      font-size: 1rem; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: background 0.2s, transform 0.1s;
+    }
+    .btn-confirm:hover   { background: #1e4a72; }
+    .btn-confirm:active  { transform: scale(0.97); }
+
+    /* ── Header ── */
+    header { text-align: center; margin-bottom: 22px; }
+    header h1 { font-size: 1.75rem; color: #1a3c5e; font-weight: 700; }
+
+    /* ── Tabs ── */
+    .tabs {
+      display: flex; gap: 4px; margin-bottom: 18px;
+      background: #fff; border-radius: 12px; padding: 6px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+    }
+    .tab-btn {
+      flex: 1; padding: 10px 14px; border: none; background: transparent;
+      color: #5a7a9a; font-size: 0.88rem; font-weight: 600;
+      border-radius: 8px; cursor: pointer; font-family: inherit;
+      transition: background 0.2s, color 0.2s;
+    }
+    .tab-btn.active       { background: #1a3c5e; color: #fff; }
+    .tab-btn:hover:not(.active) { background: #e8f0fa; color: #1a3c5e; }
+
+    /* ── Toolbar ── */
+    .toolbar { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+    .btn-toolbar {
+      display: flex; align-items: center; gap: 7px;
+      padding: 9px 18px; border: none; border-radius: 10px;
+      font-size: 0.86rem; font-weight: 600; cursor: pointer;
+      font-family: inherit; transition: background 0.2s, transform 0.1s;
+    }
+    .btn-toolbar:active { transform: scale(0.97); }
+    .btn-save       { background: #1a3c5e; color: #fff; }
+    .btn-save:hover { background: #1e4a72; }
+    .btn-add-group       { background: #e8f0fa; color: #1a3c5e; }
+    .btn-add-group:hover { background: #d0e4f7; }
+
+    /* ── Progress bar ── */
+    .progress-wrap {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      padding: 14px 20px; margin-bottom: 22px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .progress-text   { font-size: 0.86rem; font-weight: 600; color: #1a3c5e; white-space: nowrap; }
+    .progress-bar-bg { flex: 1; height: 10px; background: #e0e8f0; border-radius: 10px; overflow: hidden; }
+    .progress-bar-fill {
+      height: 100%; background: linear-gradient(90deg, #27ae60, #2ecc71);
+      border-radius: 10px; transition: width 0.3s ease; width: 0%;
+    }
+    .pct-label { font-size: 0.85rem; font-weight: 700; color: #27ae60; min-width: 36px; text-align: right; }
+
+    /* ── Group card ── */
+    .group {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      margin-bottom: 22px; overflow: hidden;
+    }
+    .group-title {
+      background: #1a3c5e; color: #fff; padding: 12px 20px;
+      font-size: 0.84rem; font-weight: 600; letter-spacing: 0.07em;
+      text-transform: uppercase;
+      display: flex; align-items: center; justify-content: space-between;
+      user-select: none;
+    }
+    .group-title.complete       { background: #1e8449; }
+    .group-title.complete:hover { background: #1a7340; }
+
+    .group-title-clickable {
+      flex: 1; cursor: pointer; display: flex; align-items: center; gap: 10px;
+      transition: opacity 0.2s;
+    }
+    .group-title-clickable:hover { opacity: 0.85; }
+
+    .group-icon-text {
+      outline: none; cursor: text; border-radius: 4px; padding: 1px 4px;
+      border-bottom: 1px solid transparent; min-width: 1.5em; text-align: center;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .group-icon-text:hover:not(:focus) { border-bottom-color: rgba(255,255,255,0.35); }
+    .group-icon-text:focus { background: rgba(255,255,255,0.15); border-bottom-color: rgba(255,255,255,0.8); outline: none; }
+
+    .group-title-text {
+      outline: none; border-radius: 4px; padding: 2px 5px; cursor: text;
+      border-bottom: 1px solid transparent; transition: border-color 0.2s, background 0.2s;
+    }
+    .group-title-text:hover:not(:focus) { border-bottom-color: rgba(255,255,255,0.35); }
+    .group-title-text:focus { background: rgba(255,255,255,0.15); border-bottom-color: rgba(255,255,255,0.8); }
+
+    .group-badge {
+      background: rgba(255,255,255,0.18); font-size: 0.70rem; font-weight: 700;
+      padding: 2px 9px; border-radius: 20px; letter-spacing: 0.02em;
+    }
+    .group-badge.done-badge { background: rgba(255,255,255,0.32); }
+
+    .group-arrow {
+      font-size: 0.72rem; opacity: 0.85; transition: transform 0.28s ease;
+      flex-shrink: 0; cursor: pointer;
+    }
+    .group.collapsed .group-arrow { transform: rotate(-90deg); }
+
+    .btn-del-group {
+      background: none; border: none; cursor: pointer;
+      color: rgba(255,255,255,0.45); font-size: 0.9rem;
+      padding: 4px 8px; border-radius: 6px; flex-shrink: 0;
+      transition: color 0.18s, background 0.18s; line-height: 1; margin-left: 6px;
+    }
+    .btn-del-group:hover { color: #fff; background: rgba(192,57,43,0.55); }
+
+    /* ── Collapsible body ── */
+    .group-body { overflow: hidden; max-height: 6000px; transition: max-height 0.4s ease; }
+    .group.collapsed .group-body { max-height: 0; }
+
+    /* ── Table ── */
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: #e8f0fa; color: #1a3c5e;
+      font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; padding: 9px 14px; text-align: left;
+    }
+    thead th.center { text-align: center; }
+    tbody tr { border-bottom: 1px solid #f0f4f8; transition: background 0.15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #f7faff; }
+    td { padding: 11px 14px; font-size: 0.92rem; color: #2d3e50; vertical-align: middle; }
+    td.center { text-align: center; }
+
+    .item-text {
+      display: block; width: 100%; outline: none; border-radius: 4px;
+      padding: 2px 5px; cursor: text; border-bottom: 1px solid transparent;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .item-text:hover:not(:focus) { border-bottom-color: #c8d8ea; }
+    .item-text:focus { background: #eef5ff; border-bottom-color: #1a3c5e; }
+
+    /* ── Done / NA rows ── */
+    tbody tr.done td:nth-child(1),
+    tbody tr.done td:nth-child(2) { opacity: 0.38; text-decoration: line-through; }
+    tbody tr.na td:nth-child(1),
+    tbody tr.na td:nth-child(2)   { opacity: 0.24; font-style: italic; }
+
+    /* ── Quantity input ── */
+    .qty-input {
+      width: 80px; text-align: center;
+      border: 1px solid #d0d9e4; border-radius: 20px;
+      padding: 4px 10px; font-size: 16px; font-weight: 600;
+      color: #1a3c5e; background: #e8f0fa; outline: none;
+      transition: border-color 0.2s, background 0.2s; font-family: inherit;
+    }
+    .qty-input:focus { border-color: #1a3c5e; background: #fff; }
+
+    /* ── Toggle ── */
+    .toggle-wrap { display: flex; align-items: center; justify-content: center; gap: 7px; }
+    .toggle-label { font-size: 0.80rem; font-weight: 600; min-width: 26px; }
+    .toggle-label.sep-sim { color: #1a7a4a; }
+    .toggle-label.sep-nao { color: #b0bec5; }
+    .toggle-label.na-sim  { color: #c0392b; }
+    .toggle-label.na-nao  { color: #b0bec5; }
+
+    .toggle { position: relative; width: 44px; height: 24px; cursor: pointer; display: inline-block; }
+    .toggle input { display: none; }
+    .slider {
+      position: absolute; inset: 0;
+      background: #d0d9e4; border-radius: 24px; transition: background 0.25s;
+    }
+    .slider::before {
+      content: ''; position: absolute;
+      width: 18px; height: 18px; left: 3px; top: 3px;
+      background: #fff; border-radius: 50%;
+      transition: transform 0.25s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .sep-toggle input:checked + .slider             { background: #27ae60; }
+    .sep-toggle input:checked + .slider::before     { transform: translateX(20px); }
+    .na-toggle  input:checked + .slider             { background: #c0392b; }
+    .na-toggle  input:checked + .slider::before     { transform: translateX(20px); }
+
+    /* ── Delete button ── */
+    .btn-del {
+      background: none; border: none; cursor: pointer;
+      color: #d0d9e4; font-size: 1rem; padding: 4px 6px;
+      border-radius: 6px; transition: color 0.18s, background 0.18s; line-height: 1;
+    }
+    .btn-del:hover { color: #c0392b; background: #fdecea; }
+
+    /* ── Add row button ── */
+    .btn-add-row {
+      display: flex; align-items: center; gap: 7px;
+      padding: 10px 20px; border: none; background: none;
+      color: #5a7a9a; font-size: 0.84rem; font-weight: 600;
+      cursor: pointer; width: 100%; text-align: left;
+      border-top: 1px dashed #dce8f5;
+      transition: background 0.15s, color 0.15s; font-family: inherit;
+    }
+    .btn-add-row:hover { background: #f0f7ff; color: #1a3c5e; }
+    .btn-add-row-icon  { font-size: 1.15rem; font-weight: 700; line-height: 1; }
+
+    /* ── Toast ── */
+    .toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1a3c5e; color: #fff;
+      padding: 12px 28px; border-radius: 28px;
+      font-size: 0.9rem; font-weight: 600;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      z-index: 900; opacity: 0;
+      transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), opacity 0.35s;
+    }
+    .toast.visible { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    /* ── Histórico tab ── */
+    .hist-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+      padding: 26px; margin-bottom: 22px;
+    }
+    .hist-card h3 { color: #1a3c5e; font-size: 1rem; margin-bottom: 18px; font-weight: 600; }
+    .hist-select-wrap { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+    .hist-select-wrap label { font-size: 0.88rem; font-weight: 600; color: #1a3c5e; }
+    .hist-select {
+      padding: 9px 16px; border: 1px solid #d0d9e4; border-radius: 10px;
+      font-size: 0.88rem; color: #1a3c5e; background: #e8f0fa;
+      font-family: inherit; outline: none; cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .hist-select:focus { border-color: #1a3c5e; }
+    .btn-load-hist {
+      padding: 9px 18px; border: none; border-radius: 10px;
+      background: #1a3c5e; color: #fff;
+      font-size: 0.84rem; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: background 0.2s;
+    }
+    .btn-load-hist:hover { background: #1e4a72; }
+    .btn-del-hist {
+      padding: 9px 18px; border: none; border-radius: 10px;
+      background: #fdecea; color: #c0392b;
+      font-size: 0.84rem; font-weight: 600;
+      cursor: pointer; font-family: inherit; transition: background 0.2s;
+    }
+    .btn-del-hist:hover { background: #f5c6c2; }
+
+    .hist-meta { font-size: 0.78rem; color: #8a9cb0; margin-bottom: 16px; }
+
+    .hist-group { margin-bottom: 16px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 6px rgba(0,0,0,0.06); }
+    .hist-group-title {
+      background: #1a3c5e; color: #fff;
+      padding: 9px 16px; font-size: 0.80rem; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .hist-group table { width: 100%; border-collapse: collapse; }
+    .hist-group thead th {
+      background: #e8f0fa; color: #1a3c5e;
+      font-size: 0.70rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.05em; padding: 7px 12px; text-align: left;
+    }
+    .hist-group thead th.center { text-align: center; }
+    .hist-group tbody td {
+      padding: 9px 12px; font-size: 0.88rem; color: #2d3e50;
+      border-bottom: 1px solid #f0f4f8;
+    }
+    .hist-group tbody tr:last-child td { border-bottom: none; }
+    .hist-group tbody td.center { text-align: center; }
+    .hist-sep-yes { color: #1a7a4a; font-weight: 600; }
+    .hist-na-yes  { color: #c0392b; font-style: italic; }
+
+    .hist-empty {
+      color: #8a9cb0; font-size: 0.9rem; text-align: center;
+      padding: 32px 20px; background: #f7faff; border-radius: 8px;
+    }
+
+    /* ── Mobile ── */
+    @media (max-width: 640px) {
+      body    { padding: 14px 10px; }
+      header h1 { font-size: 1.3rem; }
+      header p  { font-size: 0.74rem; }
+      .progress-wrap { padding: 12px 14px; gap: 10px; }
+      .progress-text { font-size: 0.80rem; }
+      .tabs { flex-direction: column; }
+      thead { display: none; }
+      table, tbody { display: block; }
+      tbody tr {
+        display: grid;
+        grid-template-columns: auto 1fr 1fr;
+        grid-template-rows: auto auto;
+        column-gap: 4px; row-gap: 10px;
+        padding: 12px 14px; border-bottom: 1px solid #f0f4f8;
+      }
+      tbody td { display: flex; flex-direction: column; align-items: center; padding: 0; }
+      tbody td:nth-child(1) { grid-column: 1 / 3; grid-row: 1; flex-direction: row; align-items: center; }
+      tbody td:nth-child(1) .item-text { flex: 1; min-width: 0; word-break: break-word; font-size: 0.90rem; }
+      tbody td:nth-child(5) { grid-column: 3; grid-row: 1; justify-content: center; align-items: center; flex-direction: row; }
+      tbody td:nth-child(2) { grid-column: 1; grid-row: 2; }
+      tbody td:nth-child(3) { grid-column: 2; grid-row: 2; }
+      tbody td:nth-child(4) { grid-column: 3; grid-row: 2; }
+      tbody td[data-label]::before {
+        content: attr(data-label); font-size: 0.58rem; font-weight: 700;
+        color: #8a9cb0; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;
+      }
+      .qty-input { width: 60px; font-size: 16px; padding: 3px 8px; }
+      .toggle-wrap  { gap: 5px; }
+      .toggle-label { font-size: 0.70rem; min-width: 20px; }
+      .group-title  { font-size: 0.76rem; padding: 11px 14px; }
+      .btn-add-row  { padding: 11px 14px; font-size: 0.82rem; }
+      /* Prevent iOS auto-zoom on any focusable element */
+      input, [contenteditable] { font-size: 16px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Modal de número de dias ── -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <h2>✈ Check-list de Viagem</h2>
+    <p>Quantos dias dura esta viagem?</p>
+    <input type="number" class="modal-days-input" id="daysInput" min="1" max="365" value="3" autofocus>
+    <div class="modal-hint" id="modalHint"></div>
+    <button class="btn-confirm" id="btnConfirmDays">Confirmar ›</button>
+  </div>
+</div>
+
+<div class="container">
+  <header>
+    <h1 id="mainTitle">✈ Check-list de viagem</h1>
+  </header>
+
+  <!-- ── Abas ── -->
+  <div class="tabs">
+    <button class="tab-btn active" id="tabBtnLista" onclick="switchTab('lista')">📋 lista</button>
+    <button class="tab-btn" id="tabBtnHistorico" onclick="switchTab('historico')">📅 Número de dias de viagem</button>
+  </div>
+
+  <!-- ── Aba: lista ── -->
+  <div id="tabLista">
+    <div class="toolbar">
+      <button class="btn-toolbar btn-save" onclick="saveCurrentState()">💾 Salvar</button>
+      <button class="btn-toolbar btn-add-group" onclick="addGroup()">＋ Adicionar Grupo</button>
+    </div>
+
+    <div class="progress-wrap">
+      <span class="progress-text">Progresso geral</span>
+      <div class="progress-bar-bg"><div class="progress-bar-fill" id="progressFill"></div></div>
+      <span class="pct-label" id="progressPct">0%</span>
+    </div>
+
+    <div id="groupsContainer"></div>
+  </div>
+
+  <!-- ── Aba: histórico ── -->
+  <div id="tabHistorico" style="display:none">
+    <div class="hist-card">
+      <h3>Histórico de viagens salvas</h3>
+      <div class="hist-select-wrap">
+        <label for="histSelect">Número de dias:</label>
+        <select class="hist-select" id="histSelect" onchange="renderHistorico()">
+          <option value="">-- Selecione --</option>
+        </select>
+        <button class="btn-load-hist" onclick="loadHistIntoLista()" title="Carrega o histórico selecionado na aba lista">↩ Carregar na lista</button>
+        <button class="btn-del-hist" onclick="deleteHistRecord()" title="Remove permanentemente este registro do histórico">🗑 Remover</button>
+      </div>
+      <div id="histContent">
+        <div class="hist-empty">Selecione um número de dias para ver o histórico</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  // ── Dados padrão ─────────────────────────────────────────
+  const DEFAULT_DATA = [
+    {
+      icon: '🧴', title: 'Necessaire',
+      items: [
+        { name: 'Desodorante',             qty: '1'       },
+        { name: 'Escova de cabelo',        qty: '2'       },
+        { name: 'Gel de cabelo',           qty: '1'       },
+        { name: 'Enxágue bucal',           qty: '1'       },
+        { name: 'Creme de pele',           qty: '1'       },
+        { name: 'Protetor solar de rosto', qty: '1'       },
+        { name: 'Barbeador',               qty: '1'       },
+        { name: 'Lente de contato',        qty: '2 pares' },
+        { name: 'Soro fisiológico',        qty: '1'       },
+        { name: 'Creatina',                qty: '2 doses' },
+      ]
+    },
+    {
+      icon: '🎒', title: 'Mochila',
+      items: [
+        { name: 'Garrafa de água',        qty: '1' },
+        { name: 'Chave de casa',          qty: '1' },
+        { name: 'Óculos',                 qty: '1' },
+        { name: 'Caixa de óculos',        qty: '1' },
+        { name: 'Carregador do notebook', qty: '1' },
+        { name: 'Carregador do celular',  qty: '1' },
+        { name: 'Power Bank',             qty: '1' },
+        { name: 'Mousepad',               qty: '1' },
+        { name: 'Mouse',                  qty: '1' },
+        { name: 'Pendrive do mouse',      qty: '1' },
+        { name: 'Notebook',               qty: '1' },
+        { name: 'Caderno',                qty: '1' },
+        { name: 'Carteira + docto',       qty: '1' },
+        { name: 'Sacos plásticos',        qty: '2' },
+        { name: 'Extensão branca',        qty: '1' },
+        { name: 'Novalgina 1G',           qty: '1' },
+        { name: 'Magnésio + Omega 3',     qty: '1' },
+        { name: 'Pasta de dente',         qty: '1' },
+        { name: 'Escova de dente',        qty: '1' },
+        { name: 'Fio dental',             qty: '1' },
+        { name: 'Fone de ouvido',         qty: '1' },
+      ]
+    },
+    {
+      icon: '🧳', title: 'Mala de Viagem',
+      items: [
+        { name: 'Sapato social ou sapatênis', qty: '1 par' },
+        { name: 'Cardigan',                   qty: '1'     },
+        { name: 'Camiseta polo',              qty: '1'     },
+        { name: 'Calça jeans',                qty: '1'     },
+        { name: 'Blusa',                      qty: '1'     },
+        { name: 'Sobretudo',                  qty: '1'     },
+        { name: 'Meia social',                qty: '2 par' },
+        { name: 'Meia de pijama',             qty: '1 par' },
+        { name: 'Chinelo + tênis + sacola',   qty: '1'     },
+        { name: 'Camiseta dry fit',           qty: '1'     },
+        { name: 'Camiseta branca underwear',  qty: '1'     },
+        { name: 'Camiseta',                   qty: '1'     },
+        { name: 'Camisa social',              qty: '1'     },
+        { name: 'Calça de moletom',           qty: '1'     },
+        { name: 'Pijama',                     qty: '1'     },
+        { name: 'Bermuda sarja',              qty: '1'     },
+        { name: 'Raquete de beach tennis',    qty: '1'     },
+        { name: 'Cueca',                      qty: '2'     },
+        { name: 'Sacos de cueca e meia',      qty: '1'     },
+        { name: 'Meia esportiva',             qty: '2 par' },
+        { name: 'Bermuda esportiva',          qty: '1'     },
+        { name: 'Cinto social/esporte fino',  qty: '1'     },
+        { name: 'Calça de sarja bege',        qty: '1'     },
+        { name: 'Ferro de passar',            qty: '1'     },
+      ]
+    }
+  ];
+
+  // ── Estado ────────────────────────────────────────────────
+  let currentDays  = 3;
+  let rowCounter   = 0;
+  let groupCounter = 0;
+
+  // ── LocalStorage ──────────────────────────────────────────
+  function getHistory() {
+    try { return JSON.parse(localStorage.getItem('checklist-viagem-history') || '[]'); }
+    catch(e) { return []; }
+  }
+  function setHistory(h) { localStorage.setItem('checklist-viagem-history', JSON.stringify(h)); }
+  function getHistoryForDays(days) { return getHistory().find(h => h.days === days) || null; }
+
+  // ── Modal ─────────────────────────────────────────────────
+  const daysInput    = document.getElementById('daysInput');
+  const modalHint    = document.getElementById('modalHint');
+  const modalOverlay = document.getElementById('modalOverlay');
+
+  daysInput.addEventListener('input', updateModalHint);
+  daysInput.addEventListener('keydown', e => { if (e.key === 'Enter') confirmDays(); });
+  document.getElementById('btnConfirmDays').addEventListener('click', confirmDays);
+
+  function updateModalHint() {
+    const d = parseInt(daysInput.value);
+    if (!d || d < 1) { modalHint.textContent = ''; modalHint.classList.remove('visible'); return; }
+    const rec = getHistoryForDays(d);
+    if (rec) {
+      const dt = new Date(rec.savedAt).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+      modalHint.textContent = `✓ Configuração salva para ${d} dia${d===1?'':'s'} encontrada (${dt}) — será carregada.`;
+      modalHint.classList.add('visible');
+    } else {
+      modalHint.textContent = '';
+      modalHint.classList.remove('visible');
+    }
+  }
+
+  function confirmDays() {
+    const d = parseInt(daysInput.value);
+    if (!d || d < 1) { daysInput.focus(); return; }
+    currentDays = d;
+    document.getElementById('mainTitle').textContent = `✈ Check-list de viagem de ${d} dia${d===1?'':'s'}`;
+    document.title = `Check-list – ${d} dia${d===1?'':'s'}`;
+    modalOverlay.style.display = 'none';
+
+    const rec = getHistoryForDays(d);
+    if (rec) {
+      renderGroupsFromData(rec.groups);
+      const dt = new Date(rec.savedAt).toLocaleDateString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric' });
+      showToast(`📂 Configuração de ${d} dias carregada (${dt})`);
+    } else {
+      renderGroupsFromData(DEFAULT_DATA);
+    }
+  }
+
+  // ── Renderização dos grupos ───────────────────────────────
+  function renderGroupsFromData(data) {
+    rowCounter = 0; groupCounter = 0;
+    document.getElementById('groupsContainer').innerHTML = data.map(makeGroup).join('');
+    document.querySelectorAll('#groupsContainer .group').forEach(updateGroupBadge);
+    updateProgress();
+  }
+
+  function makeRow(item) {
+    rowCounter++;
+    const n          = rowCounter;
+    const sepChecked = item.sep ? 'checked' : '';
+    const naChecked  = item.na  ? 'checked' : '';
+    const sepCls     = item.sep ? 'sep-sim' : 'sep-nao';
+    const naCls      = item.na  ? 'na-sim'  : 'na-nao';
+    const sepTxt     = item.sep ? 'Sim' : 'Não';
+    const naTxt      = item.na  ? 'Sim' : 'Não';
+    const trCls      = item.sep ? 'done' : (item.na ? 'na' : '');
+    return `
+      <tr class="${trCls}">
+        <td><span class="item-text" contenteditable="true">${item.name}</span></td>
+        <td class="center" data-label="Qtd"><input class="qty-input" type="text" value="${item.qty || '1'}"></td>
+        <td class="center" data-label="Separado">
+          <div class="toggle-wrap">
+            <span class="toggle-label ${sepCls}" id="sep-${n}">${sepTxt}</span>
+            <label class="toggle sep-toggle">
+              <input type="checkbox" ${sepChecked} onchange="toggleSep(this,'sep-${n}',this.closest('tr'))">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </td>
+        <td class="center" data-label="N/A">
+          <div class="toggle-wrap">
+            <span class="toggle-label ${naCls}" id="na-${n}">${naTxt}</span>
+            <label class="toggle na-toggle">
+              <input type="checkbox" ${naChecked} onchange="toggleNA(this,'na-${n}',this.closest('tr'))">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </td>
+        <td class="center"><button class="btn-del" onclick="deleteRow(this)" title="Remover item">✕</button></td>
+      </tr>`;
+  }
+
+  function makeGroup(g) {
+    groupCounter++;
+    const gId  = 'grp-' + groupCounter;
+    const rows = (g.items || []).map(makeRow).join('');
+    const tot  = (g.items || []).length;
+    return `
+      <div class="group" id="${gId}">
+        <div class="group-title">
+          <span class="group-title-clickable" onclick="toggleGroup('${gId}')">
+            <span class="group-icon-text" contenteditable="true"
+                  onclick="event.stopPropagation()" title="Clique para editar ícone">${g.icon || '📦'}</span>
+            <span class="group-title-text" contenteditable="true"
+                  onclick="event.stopPropagation()" title="Clique para editar nome">${g.title}</span>
+            <span class="group-badge" id="badge-${gId}">0 / ${tot}</span>
+          </span>
+          <span class="group-arrow" onclick="toggleGroup('${gId}')">▼</span>
+          <button class="btn-del-group" onclick="deleteGroup('${gId}')" title="Remover grupo">✕</button>
+        </div>
+        <div class="group-body">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th class="center">Quantidade</th>
+                <th class="center">Separado?</th>
+                <th class="center">Não aplicar à lista</th>
+                <th class="center" style="width:40px;"></th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+          <button class="btn-add-row" onclick="addRow('${gId}')">
+            <span class="btn-add-row-icon">+</span> Adicionar item
+          </button>
+        </div>
+      </div>`;
+  }
+
+  // ── Colapsar grupo ────────────────────────────────────────
+  function toggleGroup(gId) {
+    document.getElementById(gId).classList.toggle('collapsed');
+  }
+
+  // ── Remover grupo ─────────────────────────────────────────
+  function deleteGroup(gId) {
+    if (!confirm('Remover este grupo e todos os seus itens?')) return;
+    document.getElementById(gId).remove();
+    updateProgress();
+  }
+
+  // ── Adicionar grupo ───────────────────────────────────────
+  function addGroup() {
+    groupCounter++;
+    const gId      = 'grp-' + groupCounter;
+    const container = document.getElementById('groupsContainer');
+    const tmp = document.createElement('div');
+    tmp.innerHTML = makeGroup({ icon: '📦', title: 'Novo Grupo', items: [] });
+    // makeGroup already incremented groupCounter; use the returned HTML directly
+    container.appendChild(tmp.firstElementChild);
+    const newGroup  = container.lastElementChild;
+    const titleSpan = newGroup.querySelector('.group-title-text');
+    titleSpan.focus();
+    const range = document.createRange();
+    range.selectNodeContents(titleSpan);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    updateProgress();
+  }
+
+  // ── Toggles ───────────────────────────────────────────────
+  function toggleSep(cb, lblId, tr) {
+    const lbl = document.getElementById(lblId);
+    if (cb.checked) {
+      lbl.textContent = 'Sim'; lbl.className = 'toggle-label sep-sim';
+      tr.classList.add('done'); tr.classList.remove('na');
+      const naChk = tr.querySelector('.na-toggle input');
+      if (naChk && naChk.checked) {
+        naChk.checked = false;
+        const naLbl = tr.querySelector('.na-toggle .toggle-label');
+        if (naLbl) { naLbl.textContent = 'Não'; naLbl.className = 'toggle-label na-nao'; }
+      }
+    } else {
+      lbl.textContent = 'Não'; lbl.className = 'toggle-label sep-nao';
+      tr.classList.remove('done');
+    }
+    refreshState(tr);
+  }
+
+  function toggleNA(cb, lblId, tr) {
+    const lbl = document.getElementById(lblId);
+    if (cb.checked) {
+      lbl.textContent = 'Sim'; lbl.className = 'toggle-label na-sim';
+      tr.classList.add('na'); tr.classList.remove('done');
+      const sepChk = tr.querySelector('.sep-toggle input');
+      if (sepChk && sepChk.checked) {
+        sepChk.checked = false;
+        const sepLbl = tr.querySelector('.sep-toggle .toggle-label');
+        if (sepLbl) { sepLbl.textContent = 'Não'; sepLbl.className = 'toggle-label sep-nao'; }
+      }
+    } else {
+      lbl.textContent = 'Não'; lbl.className = 'toggle-label na-nao';
+      tr.classList.remove('na');
+    }
+    refreshState(tr);
+  }
+
+  function refreshState(tr) {
+    updateGroupBadge(tr.closest('.group'));
+    updateProgress();
+  }
+
+  function updateGroupBadge(groupEl) {
+    const rows   = groupEl.querySelectorAll('tbody tr');
+    const total  = rows.length;
+    const done   = Array.from(rows).filter(r =>
+      r.classList.contains('done') || r.classList.contains('na')).length;
+    const badge  = groupEl.querySelector('[id^="badge-"]');
+    const header = groupEl.querySelector('.group-title');
+    badge.textContent = done + ' / ' + total;
+    const complete = (done === total && total > 0);
+    header.classList.toggle('complete', complete);
+    badge.classList.toggle('done-badge', complete);
+  }
+
+  function updateProgress() {
+    const rows = document.querySelectorAll('#groupsContainer tbody tr');
+    let total = 0, done = 0;
+    rows.forEach(r => {
+      if (!r.classList.contains('na')) {
+        total++;
+        if (r.classList.contains('done')) done++;
+      }
+    });
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressPct').textContent  = pct + '%';
+  }
+
+  // ── Remover / adicionar item ──────────────────────────────
+  function deleteRow(btn) {
+    const tr      = btn.closest('tr');
+    const groupEl = tr.closest('.group');
+    tr.remove();
+    updateGroupBadge(groupEl);
+    updateProgress();
+  }
+
+  function addRow(gId) {
+    const groupEl = document.getElementById(gId);
+    const tbody   = groupEl.querySelector('tbody');
+    rowCounter++;
+    const n  = rowCounter;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><span class="item-text" contenteditable="true">Novo item</span></td>
+      <td class="center" data-label="Qtd"><input class="qty-input" type="text" value="1"></td>
+      <td class="center" data-label="Separado">
+        <div class="toggle-wrap">
+          <span class="toggle-label sep-nao" id="sep-${n}">Não</span>
+          <label class="toggle sep-toggle">
+            <input type="checkbox" onchange="toggleSep(this,'sep-${n}',this.closest('tr'))">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </td>
+      <td class="center" data-label="N/A">
+        <div class="toggle-wrap">
+          <span class="toggle-label na-nao" id="na-${n}">Não</span>
+          <label class="toggle na-toggle">
+            <input type="checkbox" onchange="toggleNA(this,'na-${n}',this.closest('tr'))">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </td>
+      <td class="center"><button class="btn-del" onclick="deleteRow(this)" title="Remover item">✕</button></td>`;
+    tbody.appendChild(tr);
+    const span = tr.querySelector('.item-text');
+    span.focus();
+    const range = document.createRange();
+    range.selectNodeContents(span);
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(range);
+    updateGroupBadge(groupEl);
+    updateProgress();
+  }
+
+  // ── Coletar estado atual ──────────────────────────────────
+  function collectCurrentGroups() {
+    const groups = [];
+    document.querySelectorAll('#groupsContainer .group').forEach(groupEl => {
+      const icon  = (groupEl.querySelector('.group-icon-text')?.textContent  || '📦').trim();
+      const title = (groupEl.querySelector('.group-title-text')?.textContent || '').trim();
+      const items = [];
+      groupEl.querySelectorAll('tbody tr').forEach(tr => {
+        items.push({
+          name: (tr.querySelector('.item-text')?.textContent || '').trim(),
+          qty:   tr.querySelector('.qty-input')?.value || '1',
+          sep:   tr.querySelector('.sep-toggle input')?.checked || false,
+          na:    tr.querySelector('.na-toggle input')?.checked  || false,
+        });
+      });
+      groups.push({ icon, title, items });
+    });
+    return groups;
+  }
+
+  // ── Salvar ────────────────────────────────────────────────
+  function saveCurrentState() {
+    const groups  = collectCurrentGroups();
+    const history = getHistory();
+    const idx     = history.findIndex(h => h.days === currentDays);
+    const record  = { days: currentDays, savedAt: new Date().toISOString(), groups };
+    if (idx >= 0) history[idx] = record;
+    else history.push(record);
+    setHistory(history);
+    populateHistoricoSelect();
+    showToast(`💾 Lista de ${currentDays} dia${currentDays===1?'':'s'} salva!`);
+  }
+
+  // ── Abas ──────────────────────────────────────────────────
+  function switchTab(tab) {
+    document.getElementById('tabLista').style.display     = tab === 'lista'     ? '' : 'none';
+    document.getElementById('tabHistorico').style.display = tab === 'historico' ? '' : 'none';
+    document.getElementById('tabBtnLista').classList.toggle('active',     tab === 'lista');
+    document.getElementById('tabBtnHistorico').classList.toggle('active', tab === 'historico');
+    if (tab === 'historico') populateHistoricoSelect();
+  }
+
+  // ── Aba Histórico ─────────────────────────────────────────
+  function populateHistoricoSelect() {
+    const sel      = document.getElementById('histSelect');
+    const prevVal  = sel.value;
+    const history  = getHistory().slice().sort((a, b) => b.days - a.days);
+    sel.innerHTML  = '<option value="">-- Selecione --</option>';
+    history.forEach(h => {
+      const opt = document.createElement('option');
+      opt.value = h.days;
+      const dt  = new Date(h.savedAt).toLocaleDateString('pt-BR',
+        { day:'2-digit', month:'2-digit', year:'numeric' });
+      opt.textContent = `${h.days} dia${h.days===1?'':'s'} — salvo em ${dt}`;
+      sel.appendChild(opt);
+    });
+    if (prevVal && [...sel.options].some(o => o.value === prevVal)) sel.value = prevVal;
+  }
+
+  function renderHistorico() {
+    const days    = parseInt(document.getElementById('histSelect').value);
+    const content = document.getElementById('histContent');
+    if (!days) {
+      content.innerHTML = '<div class="hist-empty">Selecione um número de dias para ver o histórico</div>';
+      return;
+    }
+    const rec = getHistoryForDays(days);
+    if (!rec) {
+      content.innerHTML = '<div class="hist-empty">Nenhum registro encontrado.</div>';
+      return;
+    }
+    const dt = new Date(rec.savedAt).toLocaleString('pt-BR',
+      { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    let html = `<div class="hist-meta">💾 Salvo em ${dt} &nbsp;·&nbsp; ${rec.groups.length} grupo(s)</div>`;
+    rec.groups.forEach(g => {
+      const rows = (g.items || []).map(item => `
+        <tr>
+          <td>${item.name}</td>
+          <td class="center">${item.qty}</td>
+          <td class="center ${item.sep ? 'hist-sep-yes' : ''}">${item.sep ? '✓ Sim' : '—'}</td>
+          <td class="center ${item.na  ? 'hist-na-yes'  : ''}">${item.na  ? '✓ Sim' : '—'}</td>
+        </tr>`).join('');
+      html += `
+        <div class="hist-group">
+          <div class="hist-group-title">${g.icon} ${g.title}</div>
+          <table>
+            <thead><tr>
+              <th>Item</th>
+              <th class="center">Qtd</th>
+              <th class="center">Separado?</th>
+              <th class="center">N/A</th>
+            </tr></thead>
+            <tbody>${rows || '<tr><td colspan="4" style="padding:10px 12px;color:#8a9cb0;font-style:italic">Nenhum item</td></tr>'}</tbody>
+          </table>
+        </div>`;
+    });
+    content.innerHTML = html;
+  }
+
+  function loadHistIntoLista() {
+    const days = parseInt(document.getElementById('histSelect').value);
+    if (!days) { showToast('Selecione um registro primeiro.'); return; }
+    const rec = getHistoryForDays(days);
+    if (!rec) return;
+    if (!confirm(`Carregar a configuração de ${days} dias na lista?\nAlterações não salvas serão perdidas.`)) return;
+    currentDays = days;
+    document.getElementById('mainTitle').textContent = `✈ Check-list de viagem de ${days} dia${days===1?'':'s'}`;
+    document.title = `Check-list – ${days} dia${days===1?'':'s'}`;
+    renderGroupsFromData(rec.groups);
+    switchTab('lista');
+    showToast(`↩ Configuração de ${days} dias carregada na lista`);
+  }
+
+  function deleteHistRecord() {
+    const days = parseInt(document.getElementById('histSelect').value);
+    if (!days) { showToast('Selecione um registro primeiro.'); return; }
+    if (!confirm(`Remover permanentemente o histórico de ${days} dias?`)) return;
+    setHistory(getHistory().filter(h => h.days !== days));
+    populateHistoricoSelect();
+    document.getElementById('histContent').innerHTML =
+      '<div class="hist-empty">Registro removido.</div>';
+    showToast(`🗑 Histórico de ${days} dias removido`);
+  }
+
+  // ── Toast ─────────────────────────────────────────────────
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('visible');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('visible'), 3200);
+  }
+
+  // ── Inicialização ─────────────────────────────────────────
+  window.addEventListener('load', () => {
+    daysInput.select();
+    updateModalHint();
+  });
+</script>
+</body>
+</html>
